@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scigantic-bindingdb"
+version = "0.1.0"
+description = "Query BindingDB directly from a public S3 mirror with DuckDB, including a ChEMBL cross-reference bridge table."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT-0" }
+authors = [{ name = "Scigantic" }]
+keywords = ["bindingdb", "cheminformatics", "duckdb", "drug-discovery", "binding-affinity"]
+classifiers = [
+  "License :: OSI Approved :: MIT No Attribution License (MIT-0)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Scientific/Engineering :: Chemistry",
+]
+
+dependencies = [
+  "duckdb>=0.10",
+  "pandas>=1.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "mypy>=1.10", "pandas-stubs"]
+
+[project.urls]
+Homepage = "https://scigantic.com"
+Repository = "https://github.com/Scigantic/scigantic-bindingdb"
+Issues = "https://github.com/Scigantic/scigantic-bindingdb/issues"
+
+[project.scripts]
+scigantic-bindingdb = "scigantic_bindingdb.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+scigantic_bindingdb = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true

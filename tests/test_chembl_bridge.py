@@ -1,0 +1,31 @@
+import scigantic_bindingdb as bindingdb
+
+# A gefitinib measurement, verified against the live mirror to resolve
+# through the bridge table to CHEMBL939 / "GEFITINIB" in scigantic-chembl.
+_GEFITINIB_REACTANT_SET_ID = "50891275"
+
+
+def test_bridge_resolves_a_known_measurement_to_chembl():
+    df = bindingdb.chembl_bridge(reactant_set_id=_GEFITINIB_REACTANT_SET_ID, with_names=False)
+    assert len(df) == 1
+    assert df["chembl_id"].iloc[0] == "CHEMBL939"
+    assert df["match_method"].iloc[0] == "chembl_id_column"
+
+
+def test_with_names_pulls_the_chembl_preferred_name():
+    df = bindingdb.chembl_bridge(reactant_set_id=_GEFITINIB_REACTANT_SET_ID, with_names=True)
+    assert df["chembl_pref_name"].iloc[0] == "GEFITINIB"
+
+
+def test_bridge_total_row_count():
+    # 70.2% of the 202608 release's 3,234,499 measurements resolve to a
+    # ChEMBL molregno through this table. Update if a re-mirror or a new
+    # ChEMBL release this bridges against changes the match rate.
+    df = bindingdb.chembl_bridge(with_names=False, limit=1)
+    assert "chembl_molregno" in df.columns
+
+    total = bindingdb.query(
+        "SELECT count(*) AS n FROM read_parquet("
+        "'s3://scigantic-bindingdb/202608/derived/bindingdb_chembl_bridge.parquet')"
+    )
+    assert total["n"].iloc[0] == 2272063
