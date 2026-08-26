@@ -31,7 +31,7 @@ _TIMEOUT_SECONDS = 5
 # the live manifest can't be fetched.
 _FALLBACK_LATEST = "202608"
 _FALLBACK_RELEASES = {
-    "202608": {"raw": True, "chembl_bridge": True},
+    "202608": {"raw": True, "chembl_bridge": True, "dti_pairs": True},
 }
 
 
@@ -48,6 +48,7 @@ class ReleaseInfo:
     release: str
     raw: bool
     chembl_bridge: bool
+    dti_pairs: bool
 
 
 _cache: dict[str, Any] | None = None

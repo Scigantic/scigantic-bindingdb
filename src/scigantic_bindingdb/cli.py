@@ -12,7 +12,14 @@ from .releases import releases
 
 def _cmd_info(_args: argparse.Namespace) -> int:
     for info in releases():
-        derived = [name for name, present in (("chembl_bridge", info.chembl_bridge),) if present]
+        derived = [
+            name
+            for name, present in (
+                ("chembl_bridge", info.chembl_bridge),
+                ("dti_pairs", info.dti_pairs),
+            )
+            if present
+        ]
         suffix = f" + {', '.join(derived)}" if derived else " (raw tables only)"
         print(f"{info.release}{suffix}")
     return 0

@@ -20,6 +20,7 @@ def test_202608_has_the_chembl_bridge():
     info = {r.release: r for r in bindingdb.releases()}["202608"]
     assert info.raw
     assert info.chembl_bridge
+    assert info.dti_pairs
 
 
 def test_unknown_release_raises():
@@ -30,6 +31,11 @@ def test_unknown_release_raises():
 def test_chembl_bridge_on_unknown_release_raises_capability_error():
     with pytest.raises((UnknownReleaseError, ReleaseCapabilityError)):
         bindingdb.chembl_bridge(release="999999")
+
+
+def test_dti_pairs_on_unknown_release_raises_capability_error():
+    with pytest.raises((UnknownReleaseError, ReleaseCapabilityError)):
+        bindingdb.dti_pairs(release="999999")
 
 
 def test_falls_back_when_manifest_unreachable():

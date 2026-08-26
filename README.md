@@ -64,6 +64,23 @@ df = bindingdb.chembl_bridge(reactant_set_id="50000001")
 
 `with_names=True` (the default) also reaches into the live `scigantic-chembl` mirror for the matched compound's ChEMBL preferred name, a second public-bucket read over the same connection -- not a mount-level dependency between the two archives, just a query-time join across two buckets that are both public and read-only here.
 
+## Drug-target-interaction pairs
+
+BindingDB is the dataset most DTI/proteochemometric tooling (like [DeepPurpose](https://github.com/kexinhuang12345/DeepPurpose)) is built around, specifically because it ships a full protein sequence alongside every affinity measurement -- something ChEMBL's bioactivity tables don't do as directly. `derived/dti_pairs.parquet` is BindingDB reshaped into the (ligand, target, affinity) triples a model trains on, done once rather than re-derived by every caller:
+
+```python
+df = bindingdb.dti_pairs(endpoint="ki", single_chain_only=True)
+```
+
+```
+  reactant_set_id  ligand_smiles       target_sequence  uniprot_id  endpoint  affinity_nm  p_affinity
+           764556  Cc1ncoc1-c1nnc...   MASLSQLSSHLN...      P35462        ki         1.74    8.759451
+```
+
+Only exact measurements (never a censored `>X`/`<X` bound treated as a real label), and `p_affinity` is already computed as `-log10(affinity_nm * 1e-9)` -- the same transform as ChEMBL's `pchembl_value`. 2,589,053 pairs across the four endpoints in the 202608 release, 1,163,672 distinct ligands, 9,219 distinct UniProt targets.
+
+Multichain targets are represented by chain 1's sequence only, standard practice for DTI benchmarks -- pass `single_chain_only=True` to drop the 5.7% of rows where that simplifies an actual multi-protein complex, if single-chain purity matters for your model. See `derived/DTI_README.md` in the mirror for the exact filters applied.
+
 ## Working offline
 
 Off by default, since zero setup is the whole point. Turn it on to run the same queries repeatedly without re-fetching from S3:
@@ -75,7 +92,7 @@ bindingdb.enable_cache()
 df = bindingdb.chembl_bridge()  # downloads the bridge table once, then reads from disk
 ```
 
-`chembl_bridge()` needs exactly one derived file, so caching downloads that one file to `~/.cache/scigantic-bindingdb` (override with `enable_cache(cache_dir=...)` or the `SCIGANTIC_BINDINGDB_CACHE` environment variable) and reuses it after that.
+`chembl_bridge()` and `dti_pairs()` each need exactly one derived file, so caching downloads that one file to `~/.cache/scigantic-bindingdb` (override with `enable_cache(cache_dir=...)` or the `SCIGANTIC_BINDINGDB_CACHE` environment variable) and reuses it after that.
 
 `connect()`, `query()` and `measurements()` don't participate in this: `connect()` registers five core tables as views on every call, so caching them there would mean any call eagerly downloads everything regardless of what the query actually touches. Cache one table yourself if you want it locally: `bindingdb.cache_resolve("202608/parquet/measurements.parquet")` downloads it and returns the local path, usable directly in `read_parquet(...)`.
 
@@ -85,9 +102,9 @@ df = bindingdb.chembl_bridge()  # downloads the bridge table once, then reads fr
 bindingdb.releases()
 ```
 
-| release | raw tables | ChEMBL bridge |
-|---|---|---|
-| 202608 | yes | yes |
+| release | raw tables | ChEMBL bridge | DTI pairs |
+|---|---|---|---|
+| 202608 | yes | yes | yes |
 
 This table isn't hardcoded. `releases()` reads a small manifest published alongside each mirror run. If it can't be reached, calls fall back to the snapshot shipped with whatever version you have installed and print a warning, rather than failing outright.
 

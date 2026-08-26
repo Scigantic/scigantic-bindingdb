@@ -6,6 +6,7 @@ from .cache import cache_dir, disable_cache, enable_cache, is_cache_enabled
 from .cache import resolve as cache_resolve
 from .chembl_bridge import chembl_bridge
 from .connection import connect, query
+from .dti_pairs import dti_pairs
 from .measurements import measurements
 from .releases import (
     ReleaseCapabilityError,
@@ -26,6 +27,7 @@ __all__ = [
     "connect",
     "query",
     "measurements",
+    "dti_pairs",
     "releases",
     "latest",
     "enable_cache",
