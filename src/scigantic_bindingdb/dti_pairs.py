@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
 Endpoint = Literal["ki", "ic50", "kd", "ec50"]
+_ENDPOINTS: tuple[Endpoint, ...] = ("ki", "ic50", "kd", "ec50")
 
 
 def dti_pairs(
@@ -46,6 +47,8 @@ def dti_pairs(
     release defaults to the manifest's current latest(). Only that release
     is guaranteed to carry this file; call releases() to check.
     """
+    if endpoint is not None and endpoint not in _ENDPOINTS:
+        raise ValueError(f"endpoint must be one of {_ENDPOINTS}, got {endpoint!r}")
     release = release or latest()
     _require(release, "dti_pairs")
     con = connect(release)

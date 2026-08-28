@@ -24,6 +24,17 @@ def test_endpoint_filter():
     assert (df["endpoint"] == "ki").all()
 
 
+def test_invalid_endpoint_raises_rather_than_silently_returning_nothing():
+    # Regression test: found via stress testing that a typo'd endpoint (the
+    # Endpoint Literal isn't checked at runtime by Python) silently matched
+    # zero rows instead of erroring, unlike measurements()'s equivalent
+    # validation. A bad filter should look like a mistake, not "no data."
+    import pytest
+
+    with pytest.raises(ValueError):
+        bindingdb.dti_pairs(endpoint="not_a_real_endpoint")
+
+
 def test_p_affinity_matches_the_log_transform():
     df = bindingdb.dti_pairs(endpoint="ki", limit=50)
     for affinity_nm, p_affinity in zip(df["affinity_nm"], df["p_affinity"]):
