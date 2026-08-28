@@ -32,7 +32,7 @@ def test_p_affinity_matches_the_log_transform():
 
 def test_no_censored_values_present():
     # dti_pairs.parquet is built from exact ('=') measurements only, so
-    # there is no qualifier column to check here at all -- its absence is
+    # there is no qualifier column to check here at all: its absence is
     # itself the guarantee. This checks the corpus doesn't smuggle in a
     # non-positive or otherwise unusable affinity instead.
     df = bindingdb.dti_pairs(limit=100_000)

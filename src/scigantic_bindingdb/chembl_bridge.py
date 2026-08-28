@@ -3,13 +3,13 @@ bridge table rather than re-deriving the join yourself.
 
 BindingDB ingests ChEMBL as one of its own curated source feeds (51.3% of
 measurements in the 202608 release), and ChEMBL separately absorbs some
-BindingDB patent-derived bioactivity data -- the two archives are not
+BindingDB patent-derived bioactivity data, so the two archives are not
 independent corpora. derived/bindingdb_chembl_bridge.parquet, built once at
 mirror time, joins measurements to s3://scigantic-chembl by BindingDB's own
 chembl_id column where present (authoritative) and falls back to an exact
 InChIKey match where it's missing. This module wraps that file, and
 optionally reaches into the live scigantic-chembl mirror over the same
-DuckDB connection for compound/target names -- a read-only cross-bucket SQL
+DuckDB connection for compound/target names: a read-only cross-bucket SQL
 join at query time, not a mount-level dependency between the two archives.
 """
 
@@ -37,7 +37,7 @@ def chembl_bridge(
 
     with_names (default True) also pulls in compound_chembl_id's pref_name
     from s3://scigantic-chembl/<chembl_release>, a second public bucket read
-    over the same connection -- set False to skip that join and get just the
+    over the same connection. Set False to skip that join and get just the
     bridge table's own columns (reactant_set_id, chembl_molregno, chembl_id,
     match_method) plus the measurement's SMILES.
 

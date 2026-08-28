@@ -36,12 +36,12 @@ def measurements(
     """Binding measurements for one endpoint, most potent first.
 
     uniprot_id matches either UniProt (SwissProt or TrEMBL) primary ID on
-    any chain of the target -- a multichain complex needs the accession on
+    any chain of the target. A multichain complex needs the accession on
     only one chain to match, and matches once regardless of how many chains
     it appears on.
 
     exact_only (default True) keeps only rows where this endpoint's
-    qualifier is '=' -- set False to also see censored ">"/"<" bounds,
+    qualifier is '='. Set False to also see censored ">"/"<" bounds,
     which come back with their qualifier column intact rather than a bare
     number that looks exact but isn't.
 

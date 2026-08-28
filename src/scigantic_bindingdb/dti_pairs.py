@@ -3,7 +3,7 @@ or proteochemometric model to train on.
 
 BindingDB is the dataset most DTI tooling (DeepPurpose and similar) is built
 around, specifically because it ships a full protein sequence alongside
-every affinity measurement -- something ChEMBL's bioactivity tables don't
+every affinity measurement, something ChEMBL's bioactivity tables don't
 do as directly. This wraps derived/dti_pairs.parquet, the pre-filtered,
 pre-transformed version of that pairing: exact measurements only (a
 censored ">"/"<" bound is never a usable regression label), chain 1's
@@ -38,7 +38,7 @@ def dti_pairs(
     four (a row's `endpoint` column says which).
 
     single_chain_only=True drops rows whose target came from a complex with
-    more than one declared chain (n_chains_declared > 1) -- those rows still
+    more than one declared chain (n_chains_declared > 1). Those rows still
     represent the interaction with chain 1's sequence only, which is fine
     for most uses, but exclude them if single-chain purity matters for your
     model.

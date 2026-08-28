@@ -34,7 +34,7 @@ $ pip install scigantic-bindingdb
 
 ## What's different about BindingDB
 
-Every row is one binding measurement (Ki, IC50, Kd or EC50) between one ligand and one protein target, rather than ChEMBL's assay-centric bioactivity record. BindingDB ships no relational database, just a flat TSV; the mirror normalizes it into `measurements` (one row per measurement), `target_chains` (one row per protein chain of the target -- BindingDB's raw format repeats a column block once per chain in a multimer) and `target_chain_names`.
+Every row is one binding measurement (Ki, IC50, Kd or EC50) between one ligand and one protein target, rather than ChEMBL's assay-centric bioactivity record. BindingDB ships no relational database, just a flat TSV; the mirror normalizes it into `measurements` (one row per measurement), `target_chains` (one row per protein chain of the target, since BindingDB's raw format repeats a column block once per chain in a multimer) and `target_chain_names`.
 
 ## Measurements, filtered the way that avoids the two sharp edges
 
@@ -56,17 +56,17 @@ df = bindingdb.measurements(uniprot_id="P00533", endpoint="ic50", exact_only=Fal
 
 ## Cross-referencing ChEMBL
 
-BindingDB ingests ChEMBL as one of its own curated source feeds (51.3% of measurements in the 202608 release), and ChEMBL separately absorbs some BindingDB patent-derived bioactivity data -- the two archives are not independent corpora. `derived/bindingdb_chembl_bridge.parquet`, built once at mirror time, joins measurements to [scigantic-chembl](https://github.com/Scigantic/scigantic-chembl) by BindingDB's own `chembl_id` column where present (authoritative) and falls back to an exact InChIKey match where it's missing:
+BindingDB ingests ChEMBL as one of its own curated source feeds (51.3% of measurements in the 202608 release), and ChEMBL separately absorbs some BindingDB patent-derived bioactivity data, so the two archives are not independent corpora. `derived/bindingdb_chembl_bridge.parquet`, built once at mirror time, joins measurements to [scigantic-chembl](https://github.com/Scigantic/scigantic-chembl) by BindingDB's own `chembl_id` column where present (authoritative) and falls back to an exact InChIKey match where it's missing:
 
 ```python
 df = bindingdb.chembl_bridge(reactant_set_id="50000001")
 ```
 
-`with_names=True` (the default) also reaches into the live `scigantic-chembl` mirror for the matched compound's ChEMBL preferred name, a second public-bucket read over the same connection -- not a mount-level dependency between the two archives, just a query-time join across two buckets that are both public and read-only here.
+`with_names=True` (the default) also reaches into the live `scigantic-chembl` mirror for the matched compound's ChEMBL preferred name, a second public-bucket read over the same connection: not a mount-level dependency between the two archives, just a query-time join across two buckets that are both public and read-only here.
 
 ## Drug-target-interaction pairs
 
-BindingDB is the dataset most DTI/proteochemometric tooling (like [DeepPurpose](https://github.com/kexinhuang12345/DeepPurpose)) is built around, specifically because it ships a full protein sequence alongside every affinity measurement -- something ChEMBL's bioactivity tables don't do as directly. `derived/dti_pairs.parquet` is BindingDB reshaped into the (ligand, target, affinity) triples a model trains on, done once rather than re-derived by every caller:
+BindingDB is the dataset most DTI/proteochemometric tooling (like [DeepPurpose](https://github.com/kexinhuang12345/DeepPurpose)) is built around, specifically because it ships a full protein sequence alongside every affinity measurement, something ChEMBL's bioactivity tables don't do as directly. `derived/dti_pairs.parquet` is BindingDB reshaped into the (ligand, target, affinity) triples a model trains on, done once rather than re-derived by every caller:
 
 ```python
 df = bindingdb.dti_pairs(endpoint="ki", single_chain_only=True)
@@ -77,9 +77,9 @@ df = bindingdb.dti_pairs(endpoint="ki", single_chain_only=True)
            764556  Cc1ncoc1-c1nnc...   MASLSQLSSHLN...      P35462        ki         1.74    8.759451
 ```
 
-Only exact measurements (never a censored `>X`/`<X` bound treated as a real label), and `p_affinity` is already computed as `-log10(affinity_nm * 1e-9)` -- the same transform as ChEMBL's `pchembl_value`. 2,589,053 pairs across the four endpoints in the 202608 release, 1,163,672 distinct ligands, 9,219 distinct UniProt targets.
+Only exact measurements (never a censored `>X`/`<X` bound treated as a real label), and `p_affinity` is already computed as `-log10(affinity_nm * 1e-9)`, the same transform as ChEMBL's `pchembl_value`. 2,589,053 pairs across the four endpoints in the 202608 release, 1,163,672 distinct ligands, 9,219 distinct UniProt targets.
 
-Multichain targets are represented by chain 1's sequence only, standard practice for DTI benchmarks -- pass `single_chain_only=True` to drop the 5.7% of rows where that simplifies an actual multi-protein complex, if single-chain purity matters for your model. See `derived/DTI_README.md` in the mirror for the exact filters applied.
+Multichain targets are represented by chain 1's sequence only, standard practice for DTI benchmarks. Pass `single_chain_only=True` to drop the 5.7% of rows where that simplifies an actual multi-protein complex, if single-chain purity matters for your model. See `derived/DTI_README.md` in the mirror for the exact filters applied.
 
 ## Working offline
 
@@ -108,7 +108,7 @@ bindingdb.releases()
 
 This table isn't hardcoded. `releases()` reads a small manifest published alongside each mirror run. If it can't be reached, calls fall back to the snapshot shipped with whatever version you have installed and print a warning, rather than failing outright.
 
-Not mirrored yet: BindingDB's 3D SDF structures and precomputed similarity/substructure search (no fingerprint corpus has been built for this archive) -- `bindingdb.query()` still reaches every raw table the mirror carries.
+Not mirrored yet: BindingDB's 3D SDF structures and precomputed similarity/substructure search (no fingerprint corpus has been built for this archive). `bindingdb.query()` still reaches every raw table the mirror carries.
 
 ## Command line
 
