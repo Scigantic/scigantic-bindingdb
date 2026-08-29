@@ -54,7 +54,6 @@ def dti_pairs(
     con = connect(release)
     try:
         path = _resolve(f"{release}/derived/dti_pairs.parquet")
-        con.execute(f"CREATE OR REPLACE VIEW dti_pairs AS SELECT * FROM read_parquet('{path}')")
 
         where: list[str] = []
         params: list[str | int] = []
@@ -68,7 +67,13 @@ def dti_pairs(
             where.append("n_chains_declared = 1")
         clause = f"WHERE {' AND '.join(where)}" if where else ""
 
-        sql = f"SELECT * FROM dti_pairs {clause} ORDER BY p_affinity DESC"
+        # read_parquet(path) inline rather than a named CREATE VIEW: see
+        # chembl_bridge.py's comment on the same change. connect() now
+        # returns a cursor on a base connection shared across calls, and a
+        # named view is catalog state on that shared connection --
+        # concurrent calls racing CREATE OR REPLACE VIEW on the same name
+        # hit DuckDB's "Catalog write-write conflict", reproduced directly.
+        sql = f"SELECT * FROM read_parquet('{path}') {clause} ORDER BY p_affinity DESC"
         if limit is not None:
             sql += " LIMIT ?"
             params.append(int(limit))
