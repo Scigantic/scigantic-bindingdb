@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 import scigantic_bindingdb as bindingdb
 
 # A gefitinib measurement, verified against the live mirror to resolve
@@ -29,3 +31,25 @@ def test_bridge_total_row_count():
         "'s3://scigantic-bindingdb/202608/derived/bindingdb_chembl_bridge.parquet')"
     )
     assert total["n"].iloc[0] == 2272063
+
+
+def test_concurrent_calls_do_not_conflict_on_catalog():
+    # Regression test for a real bug introduced by connect()'s move to a
+    # shared base connection (see connection.py): chembl_bridge() used to
+    # register its result as a named CREATE OR REPLACE VIEW, which is
+    # catalog-mutating DDL. Two calls racing that DDL on the same shared
+    # connection from different threads mostly failed with DuckDB's
+    # "Catalog write-write conflict", reproduced directly (46/48 calls
+    # failed in a 24-thread stress run) before this was fixed by
+    # referencing the parquet file inline instead of via a named view.
+    def call(i):
+        return bindingdb.chembl_bridge(
+            reactant_set_id=_GEFITINIB_REACTANT_SET_ID, with_names=(i % 2 == 0)
+        )
+
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        results = list(pool.map(call, range(16)))
+
+    for df in results:
+        assert len(df) == 1
+        assert df["chembl_id"].iloc[0] == "CHEMBL939"

@@ -49,10 +49,6 @@ def chembl_bridge(
     con = connect(release)
     try:
         bridge_path = _resolve(f"{release}/derived/bindingdb_chembl_bridge.parquet")
-        con.execute(
-            "CREATE OR REPLACE VIEW chembl_bridge AS "
-            f"SELECT * FROM read_parquet('{bridge_path}')"
-        )
 
         where: list[str] = []
         params: list[str | int] = []
@@ -61,12 +57,22 @@ def chembl_bridge(
             params.append(reactant_set_id)
         clause = f"WHERE {' AND '.join(where)}" if where else ""
 
+        # read_parquet(bridge_path) inline rather than a named
+        # CREATE VIEW: connect() now hands out a cursor on a base
+        # connection shared across calls (see connection.py), and a
+        # named view is catalog state on that shared connection.
+        # Concurrent calls each doing CREATE OR REPLACE VIEW on the same
+        # name raced each other's DDL transaction: reproduced directly,
+        # concurrent chembl_bridge()/dti_pairs() calls from a thread pool
+        # mostly failed with DuckDB's "Catalog write-write conflict".
+        # Referencing the parquet file directly in the query has no
+        # catalog side effect at all, so there's nothing to conflict on.
         if with_names:
             mol_dict = f"s3://{CHEMBL_BUCKET}/{chembl_release}/parquet/molecule_dictionary.parquet"
             sql = f"""
                 SELECT b.reactant_set_id, b.chembl_molregno, b.chembl_id, b.match_method,
                        m.ligand_smiles, d.pref_name AS chembl_pref_name
-                FROM chembl_bridge b
+                FROM read_parquet('{bridge_path}') b
                 JOIN measurements m ON m.reactant_set_id = b.reactant_set_id
                 LEFT JOIN read_parquet('{mol_dict}') d ON d.molregno = b.chembl_molregno
                 {clause}
@@ -75,7 +81,7 @@ def chembl_bridge(
             sql = f"""
                 SELECT b.reactant_set_id, b.chembl_molregno, b.chembl_id, b.match_method,
                        m.ligand_smiles
-                FROM chembl_bridge b
+                FROM read_parquet('{bridge_path}') b
                 JOIN measurements m ON m.reactant_set_id = b.reactant_set_id
                 {clause}
             """
