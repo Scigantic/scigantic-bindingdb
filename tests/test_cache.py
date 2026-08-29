@@ -127,6 +127,50 @@ def test_concurrent_downloads_of_the_same_key_never_raise(tmp_path):
     assert list(local_path.parent.glob("key.parquet.*.part")) == []
 
 
+def test_concurrent_first_resolve_of_the_same_key_downloads_once(tmp_path):
+    # Regression test for a real inefficiency: resolve()'s check-then-
+    # download wasn't coordinated across threads, so N threads racing the
+    # first resolve() of a key each saw it missing and each downloaded it
+    # in full. Verified directly before this was fixed with a per-key
+    # lock: 16 threads calling resolve() concurrently on an empty cache
+    # triggered 16 separate downloads of the same file instead of one.
+    #
+    # mock.patch is entered/exited only once here, by the main thread,
+    # before the pool starts; the worker threads only read the already-
+    # patched attribute, so this doesn't hit the same-target mock.patch
+    # race that test_concurrent_downloads_of_the_same_key_never_raise's
+    # docstring describes for patching from multiple threads at once.
+    body = b"cached-body"
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            return False
+
+        def read(self, *_args):
+            if getattr(self, "_served", False):
+                return b""
+            self._served = True
+            return body
+
+    bindingdb.enable_cache(cache_dir=str(tmp_path))
+    try:
+        with mock.patch(
+            "urllib.request.urlopen", side_effect=lambda *a, **k: FakeConnection()
+        ) as urlopen:
+            with ThreadPoolExecutor(max_workers=16) as pool:
+                paths = list(pool.map(lambda _i: resolve("shared/once.parquet"), range(16)))
+
+        assert len(set(paths)) == 1
+        assert urlopen.call_count == 1  # only one thread actually downloaded
+        final = tmp_path / "shared" / "once.parquet"
+        assert final.read_bytes() == body
+    finally:
+        bindingdb.disable_cache()
+
+
 def test_cached_bridge_matches_uncached(tmp_path):
     # The one integration-level check: caching actually gets used by a real
     # function, not just by resolve() directly, and returns the same data.

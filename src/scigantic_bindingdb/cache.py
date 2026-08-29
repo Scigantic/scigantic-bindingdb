@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import urllib.request
 import uuid
 from pathlib import Path
@@ -33,6 +34,24 @@ _enabled = False
 _cache_dir: Path | None = None
 
 _CHUNK_BYTES = 1024 * 1024
+
+# One lock per key, created on first use. Guards resolve()'s
+# check-then-download against concurrent callers asking for the same key
+# at once: without this, N threads racing the first resolve() of a key
+# each see it missing and each download it in full, rather than one
+# downloading while the rest wait and reuse the result. Verified directly:
+# 16 threads calling chembl_bridge() concurrently on an empty cache
+# triggered 16 separate downloads of the same file before this fix.
+_resolve_locks: dict[str, threading.Lock] = {}
+_resolve_locks_guard = threading.Lock()
+
+
+def _lock_for(key: str) -> threading.Lock:
+    lock = _resolve_locks.get(key)
+    if lock is not None:
+        return lock
+    with _resolve_locks_guard:
+        return _resolve_locks.setdefault(key, threading.Lock())
 
 
 def _default_cache_dir() -> Path:
@@ -114,7 +133,9 @@ def resolve(key: str) -> str:
     `key` is a path relative to the bucket root, e.g.
     "202608/derived/bindingdb_chembl_bridge.parquet". Downloads to the
     cache on first access; later calls for the same key reuse the local
-    file without touching the network.
+    file without touching the network. Concurrent callers asking for the
+    same key while it's still downloading wait for that download rather
+    than each starting their own.
     """
     if not _enabled:
         return f"s3://{BUCKET}/{key}"
@@ -124,8 +145,11 @@ def resolve(key: str) -> str:
     if local_path.exists():
         return str(local_path)
 
-    local_path.parent.mkdir(parents=True, exist_ok=True)
-    url = f"https://{BUCKET}.s3.{REGION}.amazonaws.com/{key}"
-    print(f"scigantic-bindingdb: caching {key} ...", file=sys.stderr, flush=True)
-    _atomic_download(url, local_path)
+    with _lock_for(key):
+        if local_path.exists():  # another thread finished it while we waited
+            return str(local_path)
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        url = f"https://{BUCKET}.s3.{REGION}.amazonaws.com/{key}"
+        print(f"scigantic-bindingdb: caching {key} ...", file=sys.stderr, flush=True)
+        _atomic_download(url, local_path)
     return str(local_path)
