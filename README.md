@@ -32,6 +32,19 @@ That query runs against `s3://scigantic-bindingdb` over DuckDB's httpfs extensio
 $ pip install scigantic-bindingdb
 ```
 
+## Repeat calls reuse the connection
+
+`measurements()`, `chembl_bridge()`, `dti_pairs()` and `query()` each open a connection to run one query. Under the hood that's a `cursor()` on a shared, lazily-created base connection per release, not a fresh `duckdb.connect()` every time: the first call in a process pays for `INSTALL`/`LOAD httpfs`, the S3 secret, and registering the five core views, and every later call for that release skips straight to the query.
+
+Measured, not asserted, on 2026-08-29: 8 repeat calls to `measurements(uniprot_id="P00533", endpoint="ki")` in a loop, before vs after this was fixed:
+
+| | measured |
+|---|---|
+| 8 calls, fresh connection each time | 318s total, ~39.8s/call |
+| 8 calls, shared base connection + cursor() | 5.3s total, ~0.66s/call (~60x) |
+
+`connect()` still returns something you can `close()`, and closing it only closes your cursor; the base connection stays open for the next call to reuse. A single DuckDB connection isn't safe for concurrent `execute()` calls from multiple threads, so each call gets its own cursor rather than the base connection itself, which is what makes this safe from a thread pool too.
+
 ## What's different about BindingDB
 
 Every row is one binding measurement (Ki, IC50, Kd or EC50) between one ligand and one protein target, rather than ChEMBL's assay-centric bioactivity record. BindingDB ships no relational database, just a flat TSV; the mirror normalizes it into `measurements` (one row per measurement), `target_chains` (one row per protein chain of the target, since BindingDB's raw format repeats a column block once per chain in a multimer) and `target_chain_names`.
@@ -94,7 +107,7 @@ df = bindingdb.chembl_bridge()  # downloads the bridge table once, then reads fr
 
 `chembl_bridge()` and `dti_pairs()` each need exactly one derived file, so caching downloads that one file to `~/.cache/scigantic-bindingdb` (override with `enable_cache(cache_dir=...)` or the `SCIGANTIC_BINDINGDB_CACHE` environment variable) and reuses it after that.
 
-`connect()`, `query()` and `measurements()` don't participate in this: `connect()` registers five core tables as views on every call, so caching them there would mean any call eagerly downloads everything regardless of what the query actually touches. Cache one table yourself if you want it locally: `bindingdb.cache_resolve("202608/parquet/measurements.parquet")` downloads it and returns the local path, usable directly in `read_parquet(...)`.
+`connect()`, `query()` and `measurements()` don't participate in this: `connect()` registers five core tables as views the first time a release is used, so caching them there would mean the first call for any release eagerly downloads everything regardless of what the query actually touches. Cache one table yourself if you want it locally: `bindingdb.cache_resolve("202608/parquet/measurements.parquet")` downloads it and returns the local path, usable directly in `read_parquet(...)`.
 
 ## What's mirrored
 

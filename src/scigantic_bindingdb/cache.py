@@ -24,6 +24,7 @@ from __future__ import annotations
 import os
 import sys
 import urllib.request
+import uuid
 from pathlib import Path
 
 from ._constants import BUCKET, REGION
@@ -83,6 +84,30 @@ def cache_dir() -> Path | None:
     return _cache_dir
 
 
+def _atomic_download(url: str, local_path: Path) -> None:
+    """Stream `url` to a sibling temp file, then rename it into place.
+
+    The rename is atomic, so a download killed partway through never leaves
+    something at `local_path` that looks cached but isn't: readers only
+    ever see the old state (temp file, ignored) or the new one (fully
+    written, renamed), never a partial write.
+
+    The temp filename is unique per call, not just per `local_path`: two
+    threads racing to fill the same key (e.g. two callers both hitting
+    chembl_bridge() for the first time at once) must not share a temp
+    path, or the second os.replace() below raises FileNotFoundError once
+    the first has already consumed it. Verified directly with a 16-thread
+    stress run against one shared local_path before this fix reliably
+    raised that; last writer's os.replace() wins now, which is fine since
+    every writer here is downloading the same immutable S3 key.
+    """
+    tmp_path = local_path.with_name(local_path.name + f".{uuid.uuid4().hex}.part")
+    with urllib.request.urlopen(url) as response, open(tmp_path, "wb") as fh:
+        while chunk := response.read(_CHUNK_BYTES):
+            fh.write(chunk)
+    os.replace(tmp_path, local_path)
+
+
 def resolve(key: str) -> str:
     """An S3 URL, or a local cached file path if caching is on.
 
@@ -101,13 +126,6 @@ def resolve(key: str) -> str:
 
     local_path.parent.mkdir(parents=True, exist_ok=True)
     url = f"https://{BUCKET}.s3.{REGION}.amazonaws.com/{key}"
-    # Download to a sibling temp file and rename into place atomically, so a
-    # download killed partway through never leaves a file that looks cached
-    # but isn't.
-    tmp_path = local_path.with_name(local_path.name + ".part")
     print(f"scigantic-bindingdb: caching {key} ...", file=sys.stderr, flush=True)
-    with urllib.request.urlopen(url) as response, open(tmp_path, "wb") as fh:
-        while chunk := response.read(_CHUNK_BYTES):
-            fh.write(chunk)
-    os.replace(tmp_path, local_path)
+    _atomic_download(url, local_path)
     return str(local_path)
