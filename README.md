@@ -105,7 +105,7 @@ bindingdb.enable_cache()
 df = bindingdb.chembl_bridge()  # downloads the bridge table once, then reads from disk
 ```
 
-`chembl_bridge()` and `dti_pairs()` each need exactly one derived file, so caching downloads that one file to `~/.cache/scigantic-bindingdb` (override with `enable_cache(cache_dir=...)` or the `SCIGANTIC_BINDINGDB_CACHE` environment variable) and reuses it after that.
+`chembl_bridge()` and `dti_pairs()` each need exactly one derived file, so caching downloads that one file to `~/.cache/scigantic-bindingdb` (override with `enable_cache(cache_dir=...)` or the `SCIGANTIC_BINDINGDB_CACHE` environment variable) and reuses it after that. Concurrent callers racing the first download of the same file wait for it rather than each downloading their own copy.
 
 `connect()`, `query()` and `measurements()` don't participate in this: `connect()` registers five core tables as views the first time a release is used, so caching them there would mean the first call for any release eagerly downloads everything regardless of what the query actually touches. Cache one table yourself if you want it locally: `bindingdb.cache_resolve("202608/parquet/measurements.parquet")` downloads it and returns the local path, usable directly in `read_parquet(...)`.
 
