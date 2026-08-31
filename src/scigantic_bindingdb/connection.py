@@ -123,8 +123,11 @@ def query(sql: str, release: str | None = None) -> "pd.DataFrame":
     For several queries against the same release, call connect() once and
     reuse it instead, to avoid opening and closing a cursor per query.
     """
-    con = connect(release)
+    resolved_release = release or latest()
+    con = connect(resolved_release)
     try:
-        return con.execute(sql).df()
+        df = con.execute(sql).df()
+        df.attrs["bindingdb_release"] = resolved_release
+        return df
     finally:
         con.close()

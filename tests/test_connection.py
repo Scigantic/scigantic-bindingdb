@@ -20,6 +20,19 @@ def test_query_returns_dataframe_with_expected_columns():
     assert len(df) == 5
 
 
+def test_query_records_bindingdb_release_in_attrs():
+    # Matches scigantic_chembl's query(), which stamps df.attrs["chembl_release"]
+    # the same way: the release actually used should travel with the result,
+    # not just be implicit in whatever the caller happened to pass.
+    df = bindingdb.query("SELECT 1", release="202608")
+    assert df.attrs["bindingdb_release"] == "202608"
+
+
+def test_query_omitted_release_records_resolved_release_in_attrs():
+    df = bindingdb.query("SELECT 1")
+    assert df.attrs["bindingdb_release"] == bindingdb.latest()
+
+
 def test_connect_registers_all_five_core_tables():
     con = bindingdb.connect()
     try:

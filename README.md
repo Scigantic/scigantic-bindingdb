@@ -132,4 +132,10 @@ $ scigantic-bindingdb query "SELECT count(*) FROM measurements" --release 202608
 
 ## License
 
-MIT-0. See [LICENSE](LICENSE).
+MIT-0. See [LICENSE](LICENSE). This covers the code in this package only.
+
+## Data license
+
+BindingDB's underlying data is not under one license: it's a row-by-row mix, determined by each measurement's `curation_source` column. BindingDB [licenses](https://www.bindingdb.org/rwd/bind/info.jsp) its own staff-curated rows under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/), but rows imported from ChEMBL (`curation_source = 'ChEMBL'`, 51.3% of measurements in the 202608 release) carry ChEMBL's own [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) terms instead, share-alike included. Check `curation_source` before redistributing a subset of `measurements` or `dti_pairs()` to know which terms apply to those specific rows.
+
+`chembl_bridge()` results specifically warrant care regardless of a matched measurement's own `curation_source`: every row includes `chembl_id`/`chembl_molregno` matched from ChEMBL's own `molecule_dictionary`, and with the default `with_names=True`, ChEMBL's own `pref_name`. Those columns carry ChEMBL's CC BY-SA 3.0 terms, independent of whichever license applies to the rest of that row.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scigantic-bindingdb"
-version = "0.2.4"
+version = "0.2.5"
 description = "Query BindingDB directly from a public S3 mirror with DuckDB, including a ChEMBL cross-reference bridge table and a ready drug-target-interaction training table."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,12 +25,12 @@ classifiers = [
 ]
 
 dependencies = [
-  "duckdb>=0.10",
-  "pandas>=1.5",
+  "duckdb>=0.10,<2",
+  "pandas>=1.5,<4",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "mypy>=1.10", "pandas-stubs"]
+dev = ["pytest>=7", "pytest-cov>=5", "mypy>=1.10", "pandas-stubs"]
 
 [project.urls]
 Homepage = "https://scigantic.com"
@@ -48,6 +48,13 @@ scigantic_bindingdb = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["scigantic_bindingdb"]
+# Not wired into CI as a gate: this suite runs real queries against the live
+# S3 mirror, so a coverage threshold would be one more thing that can fail
+# for reasons unrelated to a change. `pytest --cov` is available locally for
+# anyone who wants the number.
 
 [tool.mypy]
 strict = true
