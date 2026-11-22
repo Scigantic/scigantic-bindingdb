@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+title: scigantic-bindingdb
+abstract: "Query BindingDB directly from a public S3 mirror with DuckDB, including a ChEMBL cross-reference bridge table and a drug-target-interaction training table."
+authors:
+  - name: Scigantic
+    website: https://scigantic.com
+repository-code: https://github.com/Scigantic/scigantic-bindingdb
+url: https://pypi.org/project/scigantic-bindingdb/
+license: MIT-0
+keywords:
+  - "bindingdb"
+  - "cheminformatics"
+  - "duckdb"
+  - "drug-discovery"
+  - "binding-affinity"
+version: "0.2.6"
+date-released: '2026-10-05'
